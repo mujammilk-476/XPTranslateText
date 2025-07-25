@@ -31,14 +31,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Write Keys
+      - name: Setup Keystore (Debug fallback)
         run: |
-          if [ ! -z "${{ secrets.KEY_STORE }}" ]; then
+          if [ -n "${{ secrets.KEY_STORE }}" ]; then
             echo androidStorePassword='${{ secrets.KEY_STORE_PASSWORD }}' >> keystore.properties
             echo androidKeyAlias='${{ secrets.ALIAS }}' >> keystore.properties
             echo androidKeyPassword='${{ secrets.KEY_PASSWORD }}' >> keystore.properties
             echo androidStoreFile='key.jks' >> keystore.properties
             echo "${{ secrets.KEY_STORE }}" | base64 --decode > app/key.jks
+          else
+            echo "⚠️ No keystore secrets found. Generating debug.keystore..."
+            mkdir -p ~/.android
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android \
+              -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+            echo androidStorePassword=android >> keystore.properties
+            echo androidKeyAlias=androiddebugkey >> keystore.properties
+            echo androidKeyPassword=android >> keystore.properties
+            echo androidStoreFile=/home/runner/.android/debug.keystore >> keystore.properties
           fi
 
       - name: Build with Gradle
